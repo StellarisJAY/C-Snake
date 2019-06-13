@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+#include <conio.h>
 #include <windows.h>
 #include <string.h>
 
@@ -11,6 +12,8 @@
 #define PAUSE ' '
 #define WIDTH 52
 #define HEIGHT 27
+#define NAME_SIZE 128
+#define MAX_PLAYER 128
 
 // * 链表实现贪吃蛇身体
 typedef struct Snake
@@ -27,18 +30,26 @@ typedef struct food
 	int score;
 }Food;
 
+typedef struct playerInfo
+{
+	char name[NAME_SIZE];
+	int high_score;
+}Player;
+
+
+
 // ************************************************************************
 // * 
 // * 游戏中的全局变量
 // *
 // ************************************************************************
 char cGameScene[HEIGHT][WIDTH];             // 设计游戏场景大小为 50 x 25 
-char cUserName[20];
+char cUserName[NAME_SIZE];
 int iTotalScore;
 int iLastScore;
 
 int iDifficulty = 1;
-int iRefreshTimes[4] = { 200, 100, 50, 25 };
+int iRefreshTimes[4] = { 50, 12, 5, 0 };
 int iGameOver = 0;
 int iFoodSpawned = 0;
 char cControl;
@@ -67,6 +78,8 @@ int randint(int min, int max);
 int ifGameOver();
 void spawnFood();
 
+void gotoxy(int x, int y);
+
 int main(void)
 {
 	CONSOLE_CURSOR_INFO cursor_info = { 1, 0 };
@@ -76,14 +89,21 @@ int main(void)
 	while (1)
 	{
 		startMenu();
-		initGame();
+		
 		system("cls");
+		initGame();
 
 		gameLoop();
 		gameOver();
 		system("cls");
 	}
 	return 0;
+}
+
+void gotoxy(int x, int y) {
+	COORD pos = { x,y };
+	HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);// 获取标准输出设备句柄
+	SetConsoleCursorPosition(hOut, pos);//两个参数分别是指定哪个窗体，具体位置
 }
 
 int randint(int min, int max)
@@ -94,7 +114,7 @@ int randint(int min, int max)
 void enterUsername()
 {
 	int iSelect;
-	char cSearchName[20], cName[20];
+	char cSearchName[NAME_SIZE], cName[NAME_SIZE];
 	FILE *fp;
 	int iScore;
 	int iFound = 0;
@@ -177,7 +197,8 @@ void startMenu()
 	printf("#                1. 开始游戏                       #\n");
 	printf("#                2. 查看排行榜                     #\n");
 	printf("#                3. 查看我的分数                   #\n");
-	printf("#                4. 退出游戏                       #\n");
+	printf("#                4. 切换玩家                       #\n");
+	printf("#                5. 退出游戏                       #\n");
 	printf("#                                                  #\n");
 	printf("#                                                  #\n");
 	printf("====================================================\n");
@@ -206,13 +227,19 @@ void startMenu()
 		char ch = _getch();
 		startMenu();
 	}
-	else if (iSelect == 4)
+	else if (iSelect == 5)
 	{
 		printf("\t\t正在将你的分数写入排行榜，请勿关闭游戏\n");
+		updateScoreBoard();
 		Sleep(500);
 		printf("                    按任意键退出游戏\n");
 		char ch = _getch();
 		exit(1);
+	}
+	else if (iSelect == 4)
+	{
+		enterUsername();
+		startMenu();
 	}
 	else
 	{
@@ -247,8 +274,9 @@ void chooseDifficulty()
 void displayScoreBoard()
 {
 	FILE *fp;
-	char cName[20];
+	char cName[NAME_SIZE];
 	int iScore;
+	
 
 	if ((fp = fopen("scoreBoard.txt", "r+")) == NULL)
 	{
@@ -272,9 +300,11 @@ void displayScoreBoard()
 void updateScoreBoard()
 {
 	FILE *fp;
-	int iScore;
-	char cName[20];
+	Player playerList[MAX_PLAYER];
+	int iPlayerCount = 0;
 	int iFound = 0;
+	int i, j;
+
 
 	if ((fp = fopen("scoreBoard.txt", "r+")) == NULL)
 	{
@@ -286,20 +316,48 @@ void updateScoreBoard()
 
 	while (!feof(fp))
 	{
-		fscanf(fp, "%s%d\n", cName, &iScore);
-		if (strcmp(cName, cUserName) == 0)
+		fscanf(fp, "%s%d\n", playerList[iPlayerCount].name, &playerList[iPlayerCount].high_score);
+		if (strcmp(cUserName, playerList[iPlayerCount].name) == 0)
 		{
 			iFound = 1;
-			fseek(fp, 0, SEEK_CUR);
-			fprintf(fp, "%d\n", iTotalScore);
-			break;
+			if (iTotalScore > playerList[iPlayerCount].high_score)
+			{
+				playerList[iPlayerCount].high_score = iTotalScore;
+			}
 		}
+		
+		iPlayerCount++;
 	}
-	printf("%d\n", iFound);
 	if (iFound == 0)
 	{
-		fseek(fp, 0, SEEK_END);
-		fprintf(fp, "%s %d\n", cUserName, iTotalScore);
+		playerList[iPlayerCount].high_score = iTotalScore;
+		strcpy(playerList[iPlayerCount].name, cUserName);
+		iPlayerCount++;
+	}
+
+	for (i = 0; i < iPlayerCount; i++)
+	{
+		for (j = 0; j < iPlayerCount - i - 1; j++)
+		{
+			if (playerList[j].high_score < playerList[j + 1].high_score)
+			{
+				int temp = playerList[j].high_score;
+				playerList[j].high_score = playerList[j + 1].high_score;
+				playerList[j + 1].high_score = temp;
+
+				char cTemp[NAME_SIZE];
+				strcpy(cTemp, playerList[j].name);
+				strcpy(playerList[j].name, playerList[j + 1].name);
+				strcpy(playerList[j + 1].name, cTemp);
+			}
+		}
+	}
+	i = 0;
+	fseek(fp, 0, SEEK_SET);
+	while (i < iPlayerCount)
+	{
+		fprintf(fp, "%s %d\n", playerList[i].name, playerList[i].high_score);
+		i++;
 	}
 	fclose(fp);
 }
@@ -307,7 +365,7 @@ void updateScoreBoard()
 void myInfo()
 {
 	int iScore;
-	char cName[20];	
+	char cName[NAME_SIZE];	
 	FILE *fp;
 	int iFound = 0;
 
@@ -388,26 +446,30 @@ void initGame()
 	head->next->y = 12;
 	head->next->next = NULL;
 	tail = head->next;
-}
-
-void refreshScreen()
-{
-	int i, j;
-
-	system("cls");
 	for (i = 0; i < HEIGHT; i++)
 	{
 		for (j = 0; j < WIDTH; j++)
 		{
 			putchar(cGameScene[i][j]);
 		}
-		if (i == 12)
-		{
-			printf("         得分：%d\n", iTotalScore);
-		}
-		else
-			putchar('\n');
+		putchar('\n');
 	}
+}
+
+void refreshScreen()
+{
+	int i, j;
+
+	for (i = 1; i < HEIGHT - 1; i++)
+	{
+		for (j = 1; j < WIDTH - 1; j++)
+		{
+			gotoxy(j, i);
+			putchar(cGameScene[i][j]);
+		}
+	}
+	gotoxy(WIDTH + 5, 12);
+	printf("得分：%d", iTotalScore);
 }
 
 void updateSnakeShape()
