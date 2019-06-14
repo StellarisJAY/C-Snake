@@ -583,7 +583,7 @@ void gameLoop()
 
 		if (head->x == food.x && head->y == food.y)
 		{
-			iTotalScore += 4;
+			iTotalScore += iDifficulty + 1;
 			tail->next = (Snake*)malloc(sizeof(Snake));
 			switch (cControl)
 			{
