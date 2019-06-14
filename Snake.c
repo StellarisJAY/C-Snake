@@ -13,7 +13,7 @@
 #define WIDTH 52
 #define HEIGHT 27
 #define NAME_SIZE 128
-#define MAX_PLAYER 128
+#define MAX_PLAYER 1024
 
 // * 链表实现贪吃蛇身体
 typedef struct Snake
@@ -34,6 +34,7 @@ typedef struct playerInfo
 {
 	char name[NAME_SIZE];
 	int high_score;
+	int play_times;
 }Player;
 
 
@@ -47,9 +48,10 @@ char cGameScene[HEIGHT][WIDTH];             // 设计游戏场景大小为 50 x 25
 char cUserName[NAME_SIZE];
 int iTotalScore;
 int iLastScore;
+int iTotalTimes = 0;
 
 int iDifficulty = 1;
-int iRefreshTimes[4] = { 50, 12, 5, 0 };
+int iRefreshTimes[4] = { 50, 25, 5, 0 };
 int iGameOver = 0;
 int iFoodSpawned = 0;
 char cControl;
@@ -155,13 +157,13 @@ void enterUsername()
 
 		while (!feof(fp))
 		{
-			fscanf(fp, "%s%d\n", cName, &iScore);
+			fscanf(fp, "%s%d%d\n", cName, &iScore, &iTotalTimes);
 			if (strcmp(cSearchName, cName) == 0)
 			{
 				iFound = 1;
 				strcpy(cUserName, cSearchName);
 				iLastScore = iScore;
-				printf("\t\t找到玩家：%s, 当前分数：%d\n", cUserName, iLastScore);
+				printf("\t\t找到玩家：%s, 当前分数：%d, 游戏总次数：%d\n", cUserName, iLastScore, iTotalTimes);
 				printf("\t\t按任意键继续.\n");
 				char ch = _getch();
 				break;
@@ -169,7 +171,7 @@ void enterUsername()
 		}
 		if (iFound == 0)
 		{
-			printf("\t\t没有找到改存档信息，请检查是否正确输入存档名.\n");
+			printf("\t\t没有找到该存档信息，请检查是否正确输入存档名.\n");
 			printf("                    按任意键返回初始菜单\n");
 			char ch = _getch();
 			enterUsername();
@@ -210,6 +212,7 @@ void startMenu()
 	if (iSelect == 1)
 	{
 		chooseDifficulty();
+		iTotalTimes += 1;
 		printf("                  Good Luck ! ! !\n");
 		Sleep(2000);
 	}
@@ -238,6 +241,7 @@ void startMenu()
 	}
 	else if (iSelect == 4)
 	{
+		updateScoreBoard();
 		enterUsername();
 		startMenu();
 	}
@@ -245,6 +249,7 @@ void startMenu()
 	{
 		printf("                    选项错误\n");
 		printf("                    按任意键返回开始界面\n");
+		fflush(stdin);
 		char ch = _getch();
 		startMenu();
 	}
@@ -276,7 +281,7 @@ void displayScoreBoard()
 	FILE *fp;
 	char cName[NAME_SIZE];
 	int iScore;
-	
+	int iTimes;
 
 	if ((fp = fopen("scoreBoard.txt", "r+")) == NULL)
 	{
@@ -290,7 +295,7 @@ void displayScoreBoard()
 	printf("======================  排行榜  ====================\n");
 	while (!feof(fp))
 	{
-		fscanf(fp, "%s%d\n", cName, &iScore);
+		fscanf(fp, "%s%d%d\n", cName, &iScore, &iTimes);
 		printf("               %s : %d\n", cName, iScore);
 	}
 	printf("====================================================\n");
@@ -316,7 +321,7 @@ void updateScoreBoard()
 
 	while (!feof(fp))
 	{
-		fscanf(fp, "%s%d\n", playerList[iPlayerCount].name, &playerList[iPlayerCount].high_score);
+		fscanf(fp, "%s%d%d\n", playerList[iPlayerCount].name, &playerList[iPlayerCount].high_score, &playerList[iPlayerCount].play_times);
 		if (strcmp(cUserName, playerList[iPlayerCount].name) == 0)
 		{
 			iFound = 1;
@@ -324,6 +329,7 @@ void updateScoreBoard()
 			{
 				playerList[iPlayerCount].high_score = iTotalScore;
 			}
+			playerList[iPlayerCount].play_times = iTotalTimes;
 		}
 		
 		iPlayerCount++;
@@ -332,6 +338,7 @@ void updateScoreBoard()
 	{
 		playerList[iPlayerCount].high_score = iTotalScore;
 		strcpy(playerList[iPlayerCount].name, cUserName);
+		playerList[iPlayerCount].play_times = iTotalTimes;
 		iPlayerCount++;
 	}
 
@@ -341,14 +348,9 @@ void updateScoreBoard()
 		{
 			if (playerList[j].high_score < playerList[j + 1].high_score)
 			{
-				int temp = playerList[j].high_score;
-				playerList[j].high_score = playerList[j + 1].high_score;
-				playerList[j + 1].high_score = temp;
-
-				char cTemp[NAME_SIZE];
-				strcpy(cTemp, playerList[j].name);
-				strcpy(playerList[j].name, playerList[j + 1].name);
-				strcpy(playerList[j + 1].name, cTemp);
+				Player temp = playerList[j];
+				playerList[j] = playerList[j + 1];
+				playerList[j + 1] = temp;
 			}
 		}
 	}
@@ -356,7 +358,7 @@ void updateScoreBoard()
 	fseek(fp, 0, SEEK_SET);
 	while (i < iPlayerCount)
 	{
-		fprintf(fp, "%s %d\n", playerList[i].name, playerList[i].high_score);
+		fprintf(fp, "%s %d %d\n", playerList[i].name, playerList[i].high_score, playerList[i].play_times);
 		i++;
 	}
 	fclose(fp);
@@ -384,7 +386,7 @@ void myInfo()
 		{
 			iFound = 1;
 			iLastScore = iScore;
-			printf("\t\t玩家：%s,  历史最高分：%d\n", cUserName, iLastScore);
+			printf("\t\t玩家：%s,  历史最高分：%d,  游戏次数: %d\n", cUserName, iLastScore, iTotalTimes);
 			break;
 		}
 	}
@@ -392,7 +394,7 @@ void myInfo()
 	{
 		if (iFound == 0)
 		{
-			printf("\t\t玩家：%s,  当前总分：%d\n", cUserName, iTotalScore);
+			printf("\t\t玩家：%s,  当前总分：%d,  游戏次数：%d\n", cUserName, iTotalScore, iTotalTimes);
 			printf("\t\t你的信息暂时未写入存档，请稍候... ...\n");
 			updateScoreBoard();
 			Sleep(1000);
@@ -581,7 +583,7 @@ void gameLoop()
 
 		if (head->x == food.x && head->y == food.y)
 		{
-			iTotalScore += food.score;
+			iTotalScore += 4;
 			tail->next = (Snake*)malloc(sizeof(Snake));
 			switch (cControl)
 			{
