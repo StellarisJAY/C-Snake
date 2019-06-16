@@ -14,6 +14,7 @@
 #define HEIGHT 27
 #define NAME_SIZE 128
 #define MAX_PLAYER 1024
+#define MAX_OBT 4
 
 // * 链表实现贪吃蛇身体
 typedef struct Snake
@@ -37,7 +38,11 @@ typedef struct playerInfo
 	int play_times;
 }Player;
 
-
+typedef struct obstacle
+{
+	int x;
+	int y;
+}Obstacle;
 
 // ************************************************************************
 // * 
@@ -57,7 +62,8 @@ int iFoodSpawned = 0;
 char cControl;
 Snake *head, *tail;
 Food food;
-
+int iCountObt = 1;
+Obstacle *obstacles;
 // ************************************************************************
 // * 
 // * 函数声明
@@ -266,6 +272,7 @@ void chooseDifficulty()
 	if (iSelect <= 4 && iSelect >= 1)
 	{
 		iDifficulty = iSelect;
+		iCountObt = iDifficulty;
 	}
 	else
 	{
@@ -448,6 +455,32 @@ void initGame()
 	head->next->y = 12;
 	head->next->next = NULL;
 	tail = head->next;
+	cGameScene[head->y][head->x] = '@';
+	cGameScene[tail->y][tail->x] = 'O';
+	
+	if (iDifficulty >= 3)
+	{
+		obstacles = (Obstacle*)malloc(sizeof(Obstacle) * MAX_OBT);
+		obstacles[0].x = 12;
+		obstacles[0].y = 6;
+		obstacles[1].x = 12;
+		obstacles[1].y = 18;
+		obstacles[2].x = 36;
+		obstacles[2].y = 6;
+		obstacles[3].x = 36;
+		obstacles[3].y = 18;
+		for (i = 0; i < MAX_OBT; i++)
+		{
+			int k;
+			for (j = 0; j < 2; j++)
+			{
+				for (k = 0; k < 2; k++)
+				{
+					cGameScene[obstacles[i].y + j][obstacles[i].x + k] = '#';
+				}
+			}
+		}
+	}
 	for (i = 0; i < HEIGHT; i++)
 	{
 		for (j = 0; j < WIDTH; j++)
@@ -484,7 +517,7 @@ void updateSnakeShape()
 	{
 		for (j = 1; j < WIDTH - 1; j++)
 		{
-			if (cGameScene[i][j] != '*')
+			if (cGameScene[i][j] != '*' && cGameScene[i][j] != '#')
 			{
 				cGameScene[i][j] = ' ';
 			}
@@ -514,10 +547,26 @@ void updateSnakeShape()
 int ifGameOver()
 {
 	Snake *node = head->next;
+	int i;
 
 	if (head->x == WIDTH - 1 || head->x == 0 || head->y == HEIGHT - 1 || head->y == 0)
 	{
 		return 1;
+	}
+	if (iDifficulty >= 3)
+	{
+		for (i = 0; i < MAX_OBT; i++)
+		{
+			int j, k;
+			for (j = 0; j < 2; j++)
+			{
+				for (k = 0; k < 2; k++)
+				{
+					if (head->x == obstacles[i].x + k && head->y == obstacles[i].y + j)
+						return 1;
+				}
+			}
+		}
 	}
 	while (node != NULL)
 	{
@@ -527,6 +576,7 @@ int ifGameOver()
 		}
 		node = node->next;
 	}
+
 	return 0;
 }
 
@@ -539,7 +589,7 @@ void spawnFood()
 	Snake *node = head;
 	while (node != NULL)
 	{
-		if (node->x == food.x && node->y == food.y)
+		if ((node->x == food.x && node->y == food.y) || (cGameScene[food.y][food.x] == '#'))
 		{
 			food.x = randint(1, WIDTH - 2);
 			food.y = randint(1, HEIGHT - 2);
